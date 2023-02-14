@@ -25,8 +25,8 @@ router.route("/logout").post(logout)
 
 router.post('/forget-password', forgetpassword);
 router.post('/riset-password', resetpassword);
-router.post('/:userId', createProfile);
+router.post('/createProfile', createProfile);
 router.get("/:userId", getProfileById);
-router.put('/:userId', editProfile);
+router.put('/editProfile', editProfile);
 
 module.exports = router;

@@ -31,10 +31,9 @@ exports.createComment = async (req, res) => {
                 data: null
             });
         }
-
         // Get the product ID from the request
         const productId = req.params.productId;
-        console.log(productId);
+        // console.log(productId);
         // Get the product details
         const product = await Product.findById(mongoose.Types.ObjectId(productId));
 
@@ -94,6 +93,7 @@ exports.createComment = async (req, res) => {
         });
     }
 };
+
 
 
 // Get Comment By ID
@@ -260,7 +260,11 @@ exports.deleteComment = async (req, res) => {
         });
     } catch (error) {
         return res.status(500).json({
-            message: error.message
+            status: {
+                status: 0,
+                message: error.message
+            },
+            data: null
         });
     }
 };

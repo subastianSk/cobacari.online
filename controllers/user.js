@@ -7,54 +7,39 @@ const {
     validateProfile
 } = require('../models/User');
 
+// Register user
 exports.register = async (req, res) => {
     try {
-        // check is username already exists
-        const selectFullname = await User.findOne({
-            fullname: req.body.fullname
-        })
-
-        if (selectFullname) {
-            return res.status(406).send({
-                status: {
-                    status: 0,
-                    message: "fullname Already taken! Try another one",
-                },
-                data: null,
-            });
-        }
-
         // check is username already exists
         const selectUsername = await User.findOne({
             username: req.body.username
         })
-
         if (selectUsername) {
             return res.status(406).send({
                 status: {
                     status: 0,
-                    message: "username Already taken! Try another one",
-                },
-                data: null,
-            });
-        }
-
-        // check is email already exists
-        const selectEmail = await User.findOne({
-            email: req.body.email
-        })
-
-        if (selectEmail) {
-            return res.status(406).send({
-                status: {
-                    status: 0,
-                    message: "email Already taken! Try another one"
+                    message: "Username already taken! Try another one"
                 },
                 data: null
             });
         }
 
-        // save data
+        // check if email already exists
+        const selectEmail = await User.findOne({
+            email: req.body.email
+        });
+
+        if (selectEmail) {
+            return res.status(406).send({
+                status: {
+                    status: 0,
+                    message: "Email already taken! Try another one"
+                },
+                data: null
+            });
+        }
+
+        // save the data
         let registerData = new User({
             fullname: req.body.fullname,
             username: req.body.username,
@@ -62,14 +47,19 @@ exports.register = async (req, res) => {
             password: md5(req.body.password)
         });
 
-        const result = await registerData.save()
+        const result = await registerData.save();
         return res.send({
             status: {
                 status: 1,
-                message: ["Create User Success"],
+                message: "User created successfully"
             },
-            data: result
-        })
+            data: {
+                fullname: result.fullname,
+                username: result.username,
+                email: result.email,
+                password: result.password
+            }
+        });
 
     } catch (error) {
         console.log("try catch err: ", error);
@@ -82,6 +72,9 @@ exports.register = async (req, res) => {
     }
 };
 
+
+
+// Login User
 exports.login = async (req, res) => {
     try {
         const username = req.body.username;
@@ -122,6 +115,8 @@ exports.login = async (req, res) => {
         console.log(error);
     }
 }
+
+
 
 // lupa Password
 exports.forgetpassword = async (req, res) => {
@@ -250,6 +245,9 @@ exports.logout = async (req, res) => {
                 }
             });
         }
+        // Verify the JWT token
+        const decoded = await jwt.verify(req.cookies.jwtToken, process.env.JWT_SECRET);
+
         // Remove the JWT token from the cookie
         res.clearCookie("jwtToken").json({
             status: {
@@ -268,33 +266,48 @@ exports.logout = async (req, res) => {
 
 };
 
-// Create Profile USer
+// Create Profile User
 exports.createProfile = async (req, res) => {
     try {
-        // Check if the user is authorized
-        const token = req.header("Authorization");
-        if (!token) {
+        // Verify the JWT token
+        if (!req.header("Authorization")) {
             return res.status(401).json({
                 status: {
                     status: 0,
-                    message: "Unauthorized"
+                    message: "Unauthorized. No token provided."
                 },
                 data: null
             });
         }
-        // Find the user based on the user ID
-        const user = await User.findById(req.params.userId);
-        if (!user) {
-            return res.status(404).json({
-                status: {
-                    status: 0,
-                    message: "User not found"
-                },
-                data: null
-            });
+        const token = req.header("Authorization").replace("Bearer ", "");
+        let decoded;
+        try {
+            decoded = jwt.verify(token, process.env.JWT_SECRET);
+        } catch (error) {
+            if (error.name === "JsonWebTokenError") {
+                return res.status(401).json({
+                    status: {
+                        status: 0,
+                        message: "Unauthorized. Invalid token."
+                    },
+                    data: null
+                });
+            }
         }
 
         // Check if the user has already created a profile
+        const user = await User.findOne({
+            _id: decoded._id
+        });
+        if (!user) {
+            return res.status(401).json({
+                status: {
+                    status: 0,
+                    message: "Unauthorized. User not found."
+                },
+                data: null
+            });
+        }
         if (user.phoneNumber || user.zipCode || user.state || user.city || user.address || user.dateOfBirth) {
             return res.status(400).json({
                 status: {
@@ -304,7 +317,6 @@ exports.createProfile = async (req, res) => {
                 data: null
             });
         }
-
         // Get the profile details from the request body
         const {
             phoneNumber,
@@ -314,7 +326,6 @@ exports.createProfile = async (req, res) => {
             address,
             dateOfBirth
         } = req.body;
-
         // Update the user profile
         user.phoneNumber = phoneNumber;
         user.zipCode = zipCode;
@@ -322,7 +333,6 @@ exports.createProfile = async (req, res) => {
         user.city = city;
         user.address = address;
         user.dateOfBirth = dateOfBirth;
-
         const result = await user.save();
 
         // Send the response
@@ -348,7 +358,6 @@ exports.createProfile = async (req, res) => {
 // Get Profile User
 exports.getProfileById = async (req, res) => {
     try {
-        // Find the user based on the user ID
         const user = await User.findById(req.params.userId);
         if (!user) {
             return res.status(404).json({
@@ -360,7 +369,6 @@ exports.getProfileById = async (req, res) => {
             });
         }
 
-        // Create the profile if it doesn't exist
         if (!user.phoneNumber || !user.zipCode || !user.state || !user.city || !user.address || !user.dateOfBirth) {
             user.phoneNumber = null;
             user.zipCode = null;
@@ -370,10 +378,8 @@ exports.getProfileById = async (req, res) => {
             user.dateOfBirth = null;
         }
 
-        // Save the profile
         const result = await user.save();
 
-        // Send the response
         res.json({
             status: {
                 status: 1,
@@ -392,30 +398,34 @@ exports.getProfileById = async (req, res) => {
     }
 };
 
+
 // edit Profile
 exports.editProfile = async (req, res) => {
     try {
-        // Check if the user is authorized
-        const token = req.header("Authorization");
-        if (!token) {
+        // Verify the JWT token
+        if (!req.header("Authorization")) {
             return res.status(401).json({
                 status: {
                     status: 0,
-                    message: "Unauthorized"
+                    message: "Not authorized"
                 },
                 data: null
             });
         }
-        // Find the user based on the user ID
-        const user = await User.findById(req.params.userId);
-        if (!user) {
-            return res.status(404).json({
-                status: {
-                    status: 0,
-                    message: "User not found"
-                },
-                data: null
-            });
+        const token = req.header("Authorization").replace("Bearer ", "");
+        let decoded;
+        try {
+            decoded = jwt.verify(token, process.env.JWT_SECRET);
+        } catch (error) {
+            if (error.name === "JsonWebTokenError") {
+                return res.status(401).json({
+                    status: {
+                        status: 0,
+                        message: "Unauthorized. Invalid token."
+                    },
+                    data: null
+                });
+            }
         }
 
         // Get the updated profile details from the request body
@@ -427,8 +437,19 @@ exports.editProfile = async (req, res) => {
             address,
             dateOfBirth
         } = req.body;
-
         // Update the user profile
+        const user = await User.findOne({
+            _id: decoded._id
+        });
+        if (!user) {
+            return res.status(401).json({
+                status: {
+                    status: 0,
+                    message: "Not authorized"
+                },
+                data: null
+            });
+        }
         if (phoneNumber) {
             user.phoneNumber = phoneNumber;
         }

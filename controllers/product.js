@@ -13,9 +13,6 @@ const mongoose = require("mongoose");
 exports.createProduct = async (req, res) => {
     // Get the JWT token from the request header
     const token = req.header("Authorization");
-    console.log({
-        token
-    });
     if (!token) {
         return res.status(401).json({
             status: {
@@ -24,7 +21,6 @@ exports.createProduct = async (req, res) => {
             }
         });
     }
-
     try {
         // Verify the token
         const decoded = jwt.verify(token, process.env.JWT_SECRET);
@@ -40,7 +36,6 @@ exports.createProduct = async (req, res) => {
                 data: null
             });
         }
-
         // Get the product information from the request body
         const {
             Title,
@@ -94,17 +89,22 @@ exports.createProduct = async (req, res) => {
     } catch (error) {
         console.error(error.message);
         return res.status(500).json({
-            message: error.message
+            status: {
+                status: 0,
+                message: error.message
+            }
         });
     }
 };
-
 
 // get by id
 exports.getProductById = async (req, res) => {
     try {
         const product = await Product.findById(mongoose.Types.ObjectId(req.params.id)).populate({
             path: 'comments',
+            match: {
+                IsActive: true
+            },
             populate: {
                 path: 'user',
                 select: 'username'
@@ -126,6 +126,7 @@ exports.getProductById = async (req, res) => {
                 message: "Get Product by ID"
             },
             data: {
+                id_Product: result._id,
                 Title: result.Title,
                 Price: result.Price,
                 Address: result.Address,
@@ -135,6 +136,7 @@ exports.getProductById = async (req, res) => {
                 imageUrl: result.imageUrl,
                 location: result.location,
                 comments: result.comments.map(comment => ({
+                    id_comments: comment._id,
                     username: comment.user.username,
                     text: comment.comment
                 }))
@@ -142,24 +144,30 @@ exports.getProductById = async (req, res) => {
         });
     } catch (error) {
         return res.status(500).json({
-            message: error.message
+            status: {
+                status: 0,
+                message: error.message
+            }
         });
     }
 };
 
 
 
-
 // get all product
 exports.getAllProduct = async (req, res) => {
     try {
+        const lng = Number(req.query.lng);
+        const lat = Number(req.query.lat);
+        const maxDistance = 3000;
+
         const products = await Product.aggregate([{
                 $geoNear: {
                     near: {
                         type: "Point",
-                        coordinates: [Number(req.query.lng), Number(req.query.lat)]
+                        coordinates: [lng, lat]
                     },
-                    maxDistance: 10000,
+                    maxDistance: maxDistance,
                     distanceField: "dist.calculated",
                     spherical: true
                 }
@@ -181,10 +189,12 @@ exports.getAllProduct = async (req, res) => {
         }
         const result = products.map(product => {
             return {
+                id_Product: product._id,
                 Title: product.Title,
                 Price: product.Price,
                 Description: product.Description,
-                imageUrl: product.imageUrl
+                imageUrl: product.imageUrl,
+                distance: product.dist.calculated
             }
         });
         // Return success response
@@ -197,10 +207,14 @@ exports.getAllProduct = async (req, res) => {
         });
     } catch (error) {
         return res.status(500).json({
-            message: error.message
+            status: {
+                status: 0,
+                message: error.message
+            }
         });
     }
 };
+
 
 
 
@@ -224,7 +238,11 @@ exports.editProduct = async (req, res) => {
         const decoded = jwt.verify(token, process.env.JWT_SECRET);
         if (!decoded) {
             return res.status(401).json({
-                message: "Unauthorized"
+                status: {
+                    status: 0,
+                    message: "Unauthorized"
+                },
+                data: null
             });
         }
 
@@ -268,7 +286,10 @@ exports.editProduct = async (req, res) => {
         });
     } catch (error) {
         return res.status(500).json({
-            message: error.message
+            status: {
+                status: 0,
+                message: error.message
+            }
         });
     }
 };
@@ -301,12 +322,16 @@ exports.deleteProduct = async (req, res) => {
                 status: {
                     status: 0,
                     message: "Product Is Not Delete",
-                }
+                },
+                data: null
             });
         }
     } catch (error) {
         return res.status(500).json({
-            message: error.message
+            status: {
+                status: 0,
+                message: error.message
+            }
         });
     }
 }

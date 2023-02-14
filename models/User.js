@@ -31,6 +31,10 @@ const userSchema = new mongoose.Schema({
         required: true,
         select: false
     },
+    // token: {
+    //     type: String,
+    //     required: true
+    // },
     dateOfBirth: {
         type: Date,
         required: [false, "Please enter your date of birth"]
@@ -54,8 +58,7 @@ const userSchema = new mongoose.Schema({
     phoneNumber: {
         type: String,
         required: [false, "Please enter your phone number"],
-        // match: [/^\+62\d{12,13}$/, 'Invalid phone number, should start with +62 and contain 12-13 digits'],
-        unique: [true, "Phone number already exists"]
+        // unique: true
     },
     comments: [{
         type: mongoose.Schema.Types.ObjectId,
@@ -111,6 +114,7 @@ userSchema.methods.getresetPasswordToken = function () {
     this.resetPasswordExpire = Date.now() + 15 * 60 * 1000
     return resetToken
 }
+
 
 // module.exports  = { User, validate};
 module.exports = mongoose.model("User", userSchema);
